@@ -1,0 +1,9 @@
+apiVersion: dhcp.lootbot.cloud/v1
+kind: DHCPSubnet
+metadata:
+  labels:
+    app.kubernetes.io/name: test
+    app.kubernetes.io/managed-by: kustomize
+  name: dhcpsubnet-sample
+spec:
+  # TODO(user): Add fields here

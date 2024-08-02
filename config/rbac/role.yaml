@@ -1,0 +1,110 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - dhcp.lootbot.cloud
+  resources:
+  - dhcphosts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - dhcp.lootbot.cloud
+  resources:
+  - dhcphosts/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - dhcp.lootbot.cloud
+  resources:
+  - dhcphosts/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - dhcp.lootbot.cloud
+  resources:
+  - dhcpleases
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - dhcp.lootbot.cloud
+  resources:
+  - dhcpleases/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - dhcp.lootbot.cloud
+  resources:
+  - dhcpleases/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - dhcp.lootbot.cloud
+  resources:
+  - dhcpservers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - dhcp.lootbot.cloud
+  resources:
+  - dhcpservers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - dhcp.lootbot.cloud
+  resources:
+  - dhcpservers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - dhcp.lootbot.cloud
+  resources:
+  - dhcpsubnets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - dhcp.lootbot.cloud
+  resources:
+  - dhcpsubnets/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - dhcp.lootbot.cloud
+  resources:
+  - dhcpsubnets/status
+  verbs:
+  - get
+  - patch
+  - update

@@ -1,0 +1,23 @@
+# permissions for end users to view dhcpleases.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: test
+    app.kubernetes.io/managed-by: kustomize
+  name: dhcpleases-viewer-role
+rules:
+- apiGroups:
+  - dhcp.lootbot.cloud
+  resources:
+  - dhcpleases
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - dhcp.lootbot.cloud
+  resources:
+  - dhcpleases/status
+  verbs:
+  - get
