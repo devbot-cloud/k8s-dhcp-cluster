@@ -62,6 +62,7 @@ func main() {
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var tlsOpts []func(*tls.Config)
+
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -148,61 +149,10 @@ func main() {
 	// Setup Object Cache
 	knownObjectsStorage := controller.NewObjectsCache()
 
+	// Setup all Controllers
 	serverReconciler := controller.NewDHCPServerReconciler(mgr.GetClient(), mgr.GetScheme(), knownObjectsStorage, logger)
-	if err = serverReconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "DHCPServer")
-		os.Exit(1)
-	}
-
 	subnetReconciler := controller.NewDHCPSubnetReconciler(mgr.GetClient(), mgr.GetScheme(), knownObjectsStorage)
-	if err = subnetReconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "DHCPSubnet")
-		os.Exit(1)
-	}
-
 	hostReconciler := controller.NewDHCPHostReconciler(mgr.GetClient(), mgr.GetScheme(), knownObjectsStorage)
-	if err = hostReconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "DHCPHost")
-		os.Exit(1)
-	}
-	// if err = (&controller.DHCPServerReconciler{
-	// 	Client: mgr.GetClient(),
-	// 	Scheme: mgr.GetScheme(),
-	// }).SetupWithManager(mgr); err != nil {
-	// 	setupLog.Error(err, "unable to create controller", "controller", "DHCPServer")
-	// 	os.Exit(1)
-	// }
-	// if err = (&controller.DHCPSubnetReconciler{
-	// 	Client: mgr.GetClient(),
-	// 	Scheme: mgr.GetScheme(),
-	// }).SetupWithManager(mgr); err != nil {
-	// 	setupLog.Error(err, "unable to create controller", "controller", "DHCPSubnet")
-	// 	os.Exit(1)
-	// }
-	// if err = (&controller.DHCPHostReconciler{
-	// 	Client: mgr.GetClient(),
-	// 	Scheme: mgr.GetScheme(),
-	// }).SetupWithManager(mgr); err != nil {
-	// 	setupLog.Error(err, "unable to create controller", "controller", "DHCPHost")
-	// 	os.Exit(1)
-	// }
-	// if err = (&controller.DHCPLeasesReconciler{
-	// 	Client: mgr.GetClient(),
-	// 	Scheme: mgr.GetScheme(),
-	// }).SetupWithManager(mgr); err != nil {
-	// 	setupLog.Error(err, "unable to create controller", "controller", "DHCPLeases")
-	// 	os.Exit(1)
-	// }
-	// +kubebuilder:scaffold:builder
-
-	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up health check")
-		os.Exit(1)
-	}
-	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up ready check")
-		os.Exit(1)
-	}
 
 	dhcpServer, err := dhcp.NewServer(dhcp.ServerConfig{
 		Logger:             logger,
@@ -217,6 +167,37 @@ func main() {
 	serverReconciler.DHCPServer = dhcpServer
 	subnetReconciler.DHCPServer = dhcpServer
 	hostReconciler.DHCPServer = dhcpServer
+
+	// init DHCP Server
+	// loads the configuration from the k8s objects
+	// Loads the Subnets and Hosts from the k8s objects
+	if err := serverReconciler.Initialize(ctx); err != nil {
+		setupLog.Error(err, "failed to init server")
+		os.Exit(2)
+	}
+
+	if err = serverReconciler.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DHCPServer")
+		os.Exit(1)
+	}
+	if err = subnetReconciler.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DHCPSubnet")
+		os.Exit(1)
+	}
+	if err = hostReconciler.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DHCPHost")
+		os.Exit(1)
+	}
+	// +kubebuilder:scaffold:builder
+
+	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to set up health check")
+		os.Exit(1)
+	}
+	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+		setupLog.Error(err, "unable to set up ready check")
+		os.Exit(1)
+	}
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

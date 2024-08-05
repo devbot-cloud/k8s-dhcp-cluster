@@ -4,5 +4,4 @@ resources:
 - dhcp_v1_dhcpsubnet.yaml
 - dhcp_v1_dhcphost.yaml
 - dhcp_v1_dhcpleases.yaml
-- dhcp_v1_dhcpleases2.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

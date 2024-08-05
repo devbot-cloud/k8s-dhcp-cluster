@@ -40,6 +40,7 @@ type DHCPServerReconciler struct {
 }
 
 func NewDHCPServerReconciler(c client.Client, scheme *runtime.Scheme, cache *ObjectsCache, log dhcp.RLogger) *DHCPServerReconciler {
+
 	return &DHCPServerReconciler{
 		Client: c,
 		Scheme: scheme,
@@ -52,7 +53,6 @@ func NewDHCPServerReconciler(c client.Client, scheme *runtime.Scheme, cache *Obj
 // +kubebuilder:rbac:groups=dhcp.lootbot.cloud,resources=dhcpservers/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=dhcp.lootbot.cloud,resources=dhcpservers/finalizers,verbs=update
 
-
 func (r *DHCPServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	r.cache.ListensLock.Lock()
 	defer r.cache.ListensLock.Unlock()
@@ -63,49 +63,51 @@ func (r *DHCPServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		Namespace: req.Namespace,
 		Name:      req.Name,
 	}, sv)
-
 	if err != nil {
 		if errors.IsNotFound(err) {
+			// Object Deleted
 			l.Info("deleted listen")
 			err = r.DHCPServer.DeleteListen(req.Name)
 			delete(r.cache.knownListens, req.Name)
 			return ctrl.Result{Requeue: false}, err
 		}
 		l.Error(err, "failed to get Listen")
+		// Error reading the object - requeue the request.
+		// possibly due to network issues
 		return ctrl.Result{
 			Requeue:      true,
 			RequeueAfter: time.Second * 10,
 		}, err
 	}
 
+	// Check if our listen is already known
 	listenObj := r.cache.knownListens[req.Name]
 	if listenObj != nil {
 		l.Info("Listen is already known")
-		//TODO: update listener
 		err = r.DHCPServer.DeleteListen(req.Name)
 		if err != nil {
 			return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 10}, err
 		}
 	}
+	// Add new listen to server
 	l.Info("New Listen", "obj", sv)
 	err = r.DHCPServer.AddListen(sv.ToListen())
 	if err != nil {
 		l.Error(err, "Failed to add listen")
 		sv.Status.ErrorMessage = err.Error()
 	} else {
+		// DHCP is now listening on the new listen address
 		r.cache.knownListens[req.Name] = sv
-	}
-
-	if len(r.cache.knownListens) == 0 {
-		err = r.Initialize(ctx)
-		if err != nil {
-			return ctrl.Result{Requeue: true}, err
-		}
+		// Update the status of the listen
+		// TODO: Update the status of the listen
 	}
 	return ctrl.Result{}, err
 }
 
-func (r *DHCPServerReconciler) Initialize(ctx context.Context) error {
+// loadAndAddSubnets loads all subnets and adds them to the DHCP server.
+func (r *DHCPServerReconciler) loadAndAddSubnets(ctx context.Context) error {
+	r.cache.ListensLock.Lock()
+	defer r.cache.ListensLock.Unlock()
 	r.log.Infof("Loading all subnets")
 	subnetList := &dhcpv1.DHCPSubnetList{}
 	err := r.Client.List(ctx, subnetList)
@@ -118,7 +120,56 @@ func (r *DHCPServerReconciler) Initialize(ctx context.Context) error {
 			return err
 		}
 	}
-	//TODO: load listeners
+	return nil
+}
+
+// loadAndAddListens loads all listeners and adds them to the DHCP server.
+func (r *DHCPServerReconciler) loadAndAddListens(ctx context.Context) error {
+	r.cache.ListensLock.Lock()
+	defer r.cache.ListensLock.Unlock()
+	l := log.FromContext(ctx)
+	r.log.Infof("Loading all listeners")
+	listenList := &dhcpv1.DHCPServerList{}
+	err := r.Client.List(ctx, listenList)
+	if err != nil {
+		return err
+	}
+	for _, ln := range listenList.Items {
+		err = r.DHCPServer.AddListen(ln.ToListen())
+		if err != nil {
+			l.Error(err, "Failed to add listen")
+			ln.Status.ErrorMessage = err.Error()
+		} else {
+			// DHCP is now listening on the new listen address
+			//TODO: might be segafulting here
+			r.cache.knownListens[ln.Name] = &ln
+			// Update the status of the listen
+			// TODO: Update the status of the listen
+		}
+	}
+	return nil
+}
+
+// Initialize the DHCP Server
+// This function is called when the controller is started
+// It loads all subnets and listens from the k8s API
+// and adds them to the DHCP Server
+// Assumes the CRDs are cluster scoped
+func (r *DHCPServerReconciler) Initialize(ctx context.Context) error {
+	r.log.Infof("Loading all subnets")
+	// Load all subnets
+	err := r.loadAndAddSubnets(ctx)
+	if err != nil {
+		return err
+	}
+	r.log.Infof("Loading all Liseners")
+	// Load all listens
+	err = r.loadAndAddListens(ctx)
+	if err != nil {
+		return err
+	}
+	//Load all leases
+	r.log.Infof("Loading all leases")
 	return nil
 }
 

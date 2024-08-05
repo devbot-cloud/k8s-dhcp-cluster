@@ -6,7 +6,6 @@ resources:
 - bases/dhcp.lootbot.cloud_dhcpsubnets.yaml
 - bases/dhcp.lootbot.cloud_dhcphosts.yaml
 - bases/dhcp.lootbot.cloud_dhcpleases.yaml
-- bases/dhcp.lootbot.cloud_dhcpleases2s.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:
@@ -20,7 +19,6 @@ patches:
 #- path: patches/cainjection_in_dhcpsubnets.yaml
 #- path: patches/cainjection_in_dhcphosts.yaml
 #- path: patches/cainjection_in_dhcpleases.yaml
-#- path: patches/cainjection_in_dhcpleases2s.yaml
 # +kubebuilder:scaffold:crdkustomizecainjectionpatch
 
 # [WEBHOOK] To enable webhook, uncomment the following section
